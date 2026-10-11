@@ -1,0 +1,19 @@
+[project]
+name = "score-to-musicxml"
+version = "0.1.0"
+description = "楽譜のPDF/画像をMusicXMLに変換するローカルWebアプリ"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # PyPI の homr 0.7.0 には PDF 入力と複数ページ結合が入っていないため、
+    # それらを含む main ブランチのコミットに固定して取得する。
+    "homr[cpu]",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "python-multipart>=0.0.9",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+homr = { git = "https://github.com/liebharc/homr", rev = "457e7c6518a10ba755db2e60883419e56c4d7369" }

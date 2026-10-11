@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>楽譜 → MusicXML</title>
+<script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@2.1.2/build/opensheetmusicdisplay.min.js"
+  integrity="sha384-12lItsNRZQLTAONzjzkiAB2oOKC7L9JPNqWBHro/ug0hLJZTmGxbr0V2JRt8KwC2"
+  crossorigin="anonymous"></script>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f6f4;
+    --panel: #ffffff;
+    --ink: #1c1b19;
+    --muted: #6b6862;
+    --line: #dedbd4;
+    --accent: #1f6feb;
+    --accent-soft: #e8f0fe;
+    --warn: #9a6700;
+    --warn-soft: #fff8e1;
+    --error: #b42318;
+    --error-soft: #fdecea;
+    --ok: #1a7f37;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --panel: #1f2126;
+      --ink: #e9e7e3;
+      --muted: #9d9a94;
+      --line: #33363d;
+      --accent: #5b9dff;
+      --accent-soft: #1c2836;
+      --warn: #e0b341;
+      --warn-soft: #2b2412;
+      --error: #ff8a80;
+      --error-soft: #2f1a18;
+      --ok: #6fcf87;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 64px; }
+  header h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: .01em; }
+  header p { margin: 0 0 24px; color: var(--muted); font-size: 14px; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  #drop {
+    border: 2px dashed var(--line);
+    border-radius: var(--radius);
+    padding: 44px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    background: var(--panel);
+  }
+  #drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  #drop strong { display: block; font-size: 16px; margin-bottom: 6px; }
+  #drop span { color: var(--muted); font-size: 13px; }
+  #file { display: none; }
+
+  .opts { display: flex; align-items: center; gap: 18px; margin-top: 14px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+  .opts label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+  .bar { height: 7px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 4px 0 12px; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .4s ease; }
+  .statusline { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; }
+  .statusline .meta { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+  pre.log {
+    margin: 12px 0 0; padding: 12px; max-height: 190px; overflow: auto;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted); white-space: pre-wrap; word-break: break-all;
+  }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+  .tabs button {
+    appearance: none; background: none; border: none; border-bottom: 2px solid transparent;
+    padding: 9px 14px; font: inherit; font-size: 14px; color: var(--muted); cursor: pointer;
+  }
+  .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+
+  #score { overflow-x: auto; background: #fff; border-radius: 8px; padding: 8px; }
+  #score svg { max-width: none; }
+
+  .teaser-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; font-size: 13px; color: var(--muted); }
+  #teaser-img { width: 100%; border: 1px solid var(--line); border-radius: 8px; display: block; }
+
+  button.act {
+    appearance: none; font: inherit; font-size: 14px; cursor: pointer;
+    padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--ink);
+  }
+  button.act.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.act:disabled { opacity: .5; cursor: default; }
+  .actions { display: flex; gap: 10px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+
+  .note { padding: 12px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+  .note.warn { background: var(--warn-soft); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); }
+  .note.error { background: var(--error-soft); color: var(--error); border: 1px solid color-mix(in srgb, var(--error) 30%, transparent); }
+
+  footer { color: var(--muted); font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 16px; margin-top: 8px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>楽譜 → MusicXML</h1>
+    <p>PDF や写真の楽譜を MusicXML に変換します。楽譜ファイルはこの Mac の外に送られません。</p>
+  </header>
+
+  <section class="panel" id="upload-panel">
+    <div id="drop" tabindex="0" role="button" aria-label="ファイルを選択">
+      <strong>ここに PDF / JPG / PNG をドロップ</strong>
+      <span>クリックしてファイルを選ぶこともできます（上限 50 MB）</span>
+    </div>
+    <input type="file" id="file" accept=".pdf,.jpg,.jpeg,.png">
+    <div class="opts">
+      <label><input type="checkbox" id="detect-title" checked> 曲名を自動検出する</label>
+      <span>解除すると数秒速くなります</span>
+    </div>
+  </section>
+
+  <section class="panel" id="progress-panel" hidden>
+    <div class="statusline">
+      <span id="status-text">準備中…</span>
+      <span class="meta" id="status-meta"></span>
+    </div>
+    <div class="bar"><div id="bar-fill"></div></div>
+    <pre class="log" id="log"></pre>
+  </section>
+
+  <section class="panel" id="result-panel" hidden>
+    <div class="note warn" id="partial-note" hidden></div>
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-score" aria-selected="true">楽譜プレビュー</button>
+      <button role="tab" id="tab-teaser" aria-selected="false">認識結果の重ね絵</button>
+    </div>
+
+    <div id="view-score">
+      <div id="score"></div>
+    </div>
+
+    <div id="view-teaser" hidden>
+      <div class="teaser-nav">
+        <button class="act" id="teaser-prev">前のページ</button>
+        <span id="teaser-label"></span>
+        <button class="act" id="teaser-next">次のページ</button>
+      </div>
+      <img id="teaser-img" alt="検出した五線と音符の重ね絵">
+    </div>
+
+    <div class="actions">
+      <button class="act primary" id="download">MusicXML をダウンロード</button>
+      <button class="act" id="again">別のファイルを変換</button>
+    </div>
+  </section>
+
+  <section class="panel" id="error-panel" hidden>
+    <div class="note error" id="error-text"></div>
+    <button class="act" id="error-again">やり直す</button>
+  </section>
+
+  <footer>
+    認識結果は下書きです。音価や臨時記号の取りこぼしがあるため、MuseScore などでの校正を前提にしてください。
+    強弱記号・アーティキュレーション・重複調号は認識対象外です。手書き譜には対応していません。
+  </footer>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const drop = $("drop"), fileInput = $("file");
+  const uploadPanel = $("upload-panel"), progressPanel = $("progress-panel");
+  const resultPanel = $("result-panel"), errorPanel = $("error-panel");
+  const statusText = $("status-text"), statusMeta = $("status-meta");
+  const barFill = $("bar-fill"), logEl = $("log");
+
+  let jobId = null, poll = null, teaserIndex = 0, teaserCount = 0, osmd = null;
+
+  const STATUS_LABEL = {
+    queued: "順番待ち",
+    running: "解析中",
+    done: "完了",
+    error: "失敗",
+  };
+
+  function show(panel) {
+    for (const p of [uploadPanel, progressPanel, resultPanel, errorPanel]) {
+      p.hidden = p !== panel;
+    }
+  }
+
+  drop.addEventListener("click", () => fileInput.click());
+  drop.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); }
+  });
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", (e) => {
+    e.preventDefault();
+    drop.classList.remove("over");
+    if (e.dataTransfer.files.length) upload(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files.length) upload(fileInput.files[0]);
+  });
+
+  async function upload(file) {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("detect_title", $("detect-title").checked ? "true" : "false");
+
+    logEl.textContent = "";
+    barFill.style.width = "0%";
+    statusText.textContent = "アップロード中…";
+    statusMeta.textContent = "";
+    show(progressPanel);
+
+    let res;
+    try {
+      res = await fetch("/api/jobs", { method: "POST", body });
+    } catch (err) {
+      return fail("サーバーに接続できませんでした。");
+    }
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      return fail(detail.detail || `アップロードに失敗しました (${res.status})`);
+    }
+    jobId = (await res.json()).id;
+    startPolling();
+  }
+
+  function startPolling() {
+    clearInterval(poll);
+    tick();
+    poll = setInterval(tick, 2000);
+  }
+
+  async function tick() {
+    if (!jobId) return;
+    let job;
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`);
+      if (!res.ok) throw new Error();
+      job = await res.json();
+    } catch {
+      return;
+    }
+
+    barFill.style.width = job.progress + "%";
+    statusText.textContent = STATUS_LABEL[job.status] || job.status;
+    const parts = [];
+    if (job.page_count) parts.push(`${job.pages_done} / ${job.page_count} ページ`);
+    parts.push(`${job.elapsed_seconds.toFixed(0)} 秒`);
+    statusMeta.textContent = parts.join("　·　");
+    logEl.textContent = job.log.join("\n");
+    logEl.scrollTop = logEl.scrollHeight;
+
+    if (job.status === "done") {
+      clearInterval(poll);
+      await showResult(job);
+    } else if (job.status === "error") {
+      clearInterval(poll);
+      fail(job.error || "変換に失敗しました。");
+    }
+  }
+
+  async function showResult(job) {
+    progressPanel.hidden = true;
+    resultPanel.hidden = false;
+
+    const partialNote = $("partial-note");
+    if (job.partial) {
+      partialNote.textContent =
+        `${job.page_count} ページ中 ${job.pages_succeeded} ページだけ変換できました。` +
+        `残りは五線を検出できなかったページです。`;
+      partialNote.hidden = false;
+    } else {
+      partialNote.hidden = true;
+    }
+
+    teaserCount = job.teaser_count;
+    teaserIndex = 0;
+    updateTeaser();
+
+    const scoreEl = $("score");
+    scoreEl.innerHTML = "<p style='color:#666;padding:12px'>楽譜を描画しています…</p>";
+    try {
+      const xml = await (await fetch(`/api/jobs/${jobId}/musicxml`)).text();
+      scoreEl.innerHTML = "";
+      osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay(scoreEl, {
+        autoResize: true,
+        drawTitle: true,
+        backend: "svg",
+      });
+      await osmd.load(xml);
+      osmd.render();
+    } catch (err) {
+      scoreEl.innerHTML =
+        "<p style='color:#b42318;padding:12px'>MusicXML の描画に失敗しました。" +
+        "ダウンロードして MuseScore で開いてください。</p>";
+    }
+  }
+
+  function updateTeaser() {
+    const img = $("teaser-img"), label = $("teaser-label");
+    if (!teaserCount) {
+      img.removeAttribute("src");
+      label.textContent = "確認画像はありません";
+      $("teaser-prev").disabled = $("teaser-next").disabled = true;
+      return;
+    }
+    img.src = `/api/jobs/${jobId}/teaser/${teaserIndex}`;
+    label.textContent = `${teaserIndex + 1} / ${teaserCount} ページ`;
+    $("teaser-prev").disabled = teaserIndex === 0;
+    $("teaser-next").disabled = teaserIndex >= teaserCount - 1;
+  }
+
+  $("teaser-prev").addEventListener("click", () => { teaserIndex--; updateTeaser(); });
+  $("teaser-next").addEventListener("click", () => { teaserIndex++; updateTeaser(); });
+
+  const tabScore = $("tab-score"), tabTeaser = $("tab-teaser");
+  function selectTab(which) {
+    const isScore = which === "score";
+    tabScore.setAttribute("aria-selected", String(isScore));
+    tabTeaser.setAttribute("aria-selected", String(!isScore));
+    $("view-score").hidden = !isScore;
+    $("view-teaser").hidden = isScore;
+    if (isScore && osmd) osmd.render();
+  }
+  tabScore.addEventListener("click", () => selectTab("score"));
+  tabTeaser.addEventListener("click", () => selectTab("teaser"));
+
+  $("download").addEventListener("click", () => {
+    window.location.href = `/api/jobs/${jobId}/musicxml`;
+  });
+
+  function reset() {
+    clearInterval(poll);
+    jobId = null;
+    osmd = null;
+    fileInput.value = "";
+    $("score").innerHTML = "";
+    resultPanel.hidden = true;
+    errorPanel.hidden = true;
+    progressPanel.hidden = true;
+    uploadPanel.hidden = false;
+    selectTab("score");
+  }
+  $("again").addEventListener("click", reset);
+  $("error-again").addEventListener("click", reset);
+
+  function fail(message) {
+    clearInterval(poll);
+    progressPanel.hidden = true;
+    resultPanel.hidden = true;
+    errorPanel.hidden = false;
+    uploadPanel.hidden = false;
+    $("error-text").textContent = message;
+  }
+})();
+</script>
+</body>
+</html>
