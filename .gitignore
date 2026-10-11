@@ -1,9 +1,10 @@
 .venv/
 __pycache__/
 *.pyc
-data/jobs/
-data/logs/
+data/
 .env*
 *.pem
 *.key
 .DS_Store
+.claude/settings.local.json
+.claude/.cc-writes/

@@ -30,21 +30,45 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     store.shutdown()
 
 
-app = FastAPI(title="score-to-musicxml", lifespan=lifespan)
+# 自動生成のAPIドキュメント(/docs 等)は外部CDNを読み込むため無効にする。
+app = FastAPI(
+    title="score-to-musicxml",
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
 # 認証を持たないローカル専用アプリなので、ブラウザ経由の攻撃を入口で止める。
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+# multipart の境界やフィールド分の余裕を見込んだ、リクエスト全体の上限。
+MAX_BODY_BYTES = MAX_UPLOAD_BYTES + 1024 * 1024
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": "frame-ancestors 'none'",
+}
 
 
 @app.middleware("http")
-async def reject_cross_origin_writes(request: Request, call_next):  # type: ignore[no-untyped-def]
-    """別サイトのページからの書き込み(CSRF)を拒否する。curl 等 Origin の無い要求は通す。"""
+async def guard_requests(request: Request, call_next):  # type: ignore[no-untyped-def]
+    """別サイトからの書き込み(CSRF)と巨大な本文を拒否し、応答にセキュリティヘッダーを付ける。
+
+    curl 等 Origin の無い要求は通す。
+    """
     if request.method in WRITE_METHODS:
         origin = request.headers.get("origin")
         if origin is not None and urlparse(origin).netloc != request.headers.get("host"):
             return JSONResponse({"detail": "許可されていないオリジンです。"}, status_code=403)
-    return await call_next(request)
+        length = request.headers.get("content-length", "")
+        if length.isdigit() and int(length) > MAX_BODY_BYTES:
+            return JSONResponse({"detail": "リクエストが大きすぎます。"}, status_code=413)
+    response = await call_next(request)
+    for name, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(name, value)
+    return response
 
 
 # 最後に追加したものが最も外側で動く。Host 検証(DNS rebinding 対策)を最初に行う。
@@ -66,6 +90,10 @@ async def create_job(
         allowed = " / ".join(sorted(s.lstrip(".").upper() for s in converter.ALLOWED_SUFFIXES))
         raise HTTPException(400, f"対応していない形式です。{allowed} を指定してください。")
 
+    if file.size is not None and file.size > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            413, f"ファイルが大きすぎます。上限は {MAX_UPLOAD_BYTES // (1024 * 1024)} MB です。"
+        )
     data = await file.read()
     if not data:
         raise HTTPException(400, "ファイルが空です。")

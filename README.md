@@ -24,6 +24,9 @@ uv run homr --init
 
 ### 通常の使い方: ScoreToXML.app
 
+> `ScoreToXML.app`はリポジトリに含まれません。作者がAppleScriptで作った個人用のランチャーです。
+> 同じ操作は`./scripts/open-app.sh`で再現できます。
+
 Launchpad、Dock、または`/Applications`から**ScoreToXML**を起動するだけです。
 コマンドもClaudeも不要です。
 
@@ -40,7 +43,8 @@ Launchpad、Dock、または`/Applications`から**ScoreToXML**を起動する�
 
 ### Claude Codeの Skillから開く
 
-`~/.claude/skills/score-to-musicxml-homr/SKILL.md`を登録済みです。Claude Codeの
+`~/.claude/skills/score-to-musicxml-homr/SKILL.md`を、作者の環境では登録しています
+（リポジトリには含まれません）。Claude Codeの
 セッションで「score-to-musicxml-homrを開いて」のように頼むと、`ScoreToXML.app`
 と同じ`scripts/open-app.sh`を実行し、サーバー確認・起動・ブラウザオープンまで
 行います（Skillは次回のセッション起動時から認識されます）。
@@ -117,6 +121,7 @@ main ブランチの未リリース分のため、`pyproject.toml` でコミッ�
 - `127.0.0.1`以外に公開しないでください（`--host 0.0.0.0`での起動は避けてください）
 - `Host`が`127.0.0.1`か`localhost`以外のリクエストと、別サイトのページからの書き込み
   （POST・DELETE）は拒否します。悪意あるWebページからの操作やDNS rebindingを防ぐためです
+- クリックジャッキング対策のヘッダーを付け、`/docs`などの自動生成ドキュメントは無効にしています
 - 変換結果は`data/jobs/`に残ります。不要になったら画面から削除するか、フォルダごと削除してください
 
 ## ライセンス
