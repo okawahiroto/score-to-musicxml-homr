@@ -80,6 +80,12 @@ def index() -> HTMLResponse:
     return HTMLResponse((STATIC_DIR / "index.html").read_text(encoding="utf-8"))
 
 
+@app.get("/api/health")
+def health() -> dict[str, str]:
+    """起動スクリプトが、この番号で動いているのが本アプリだと見分けるための応答。"""
+    return {"app": "score-to-musicxml-homr"}
+
+
 @app.post("/api/jobs")
 async def create_job(
     file: Annotated[UploadFile, File()],

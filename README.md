@@ -32,27 +32,21 @@ Launchpad、Dock、または`/Applications`から**ScoreToXML**を起動する�
 
 クリックすると、内部で次の処理が順番に走ります。
 
-1. `http://127.0.0.1:8000/` に問い合わせ、サーバーがすでに応答するか確認する
-2. 応答がなければ `.venv/bin/python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000`
-   をバックグラウンドで起動し、ログを `data/logs/` に書き出す。起動完了まで待つ
-3. 既定のブラウザで `http://127.0.0.1:8000/` を開く
+1. `http://127.0.0.1:8765/api/health`に問い合わせ、本アプリのサーバーが動いているか確認する。
+   応答が本アプリのものかを見るので、別のアプリが同じ番号を使っていても取り違えない
+2. 動いていなければ、`.venv/bin/python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8765`
+   をバックグラウンドで起動し、ログを`data/logs/`に書き出す。起動完了まで待つ。
+   8765番を別のアプリが使っている場合は、エラーを表示して終了する
+3. 既定のブラウザで`http://127.0.0.1:8765/`を開く
 
 `ScoreToXML.app`はAppleScriptを`osacompile`でコンパイルした薄いランチャーで、
 実体は`scripts/open-app.sh`を呼んでいるだけです。すでにサーバーが起動していれば
 手順1で終わり、ブラウザを開くだけです。
 
-### Claude Codeの Skillから開く
-
-`~/.claude/skills/score-to-musicxml-homr/SKILL.md`を、作者の環境では登録しています
-（リポジトリには含まれません）。Claude Codeの
-セッションで「score-to-musicxml-homrを開いて」のように頼むと、`ScoreToXML.app`
-と同じ`scripts/open-app.sh`を実行し、サーバー確認・起動・ブラウザオープンまで
-行います（Skillは次回のセッション起動時から認識されます）。
-
 ### 手動起動（開発時など）
 
 ```bash
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8765
 ```
 
 ## 使い方
